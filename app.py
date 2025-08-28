@@ -26,8 +26,7 @@ def get_db_path():
 def initialize_chroma():
     """Initializes and returns a ChromaDB client."""
     db_path = get_db_path()
-    if os.path.exists(db_path):
-        shutil.rmtree(db_path)
+    # The database path will not be removed here to preserve data across runs
     return chromadb.PersistentClient(path=db_path)
 
 def clear_chroma_data():
@@ -238,4 +237,3 @@ def main_ui():
 
 if __name__ == "__main__":
     main_ui()
-

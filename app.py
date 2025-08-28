@@ -163,6 +163,11 @@ def rag_pipeline(query):
     """
     Executes the full RAG pipeline: retrieval and response generation.
     """
+    # Check if the ChromaDB collection is empty before running the pipeline
+    collection = get_collection()
+    if collection.count() == 0:
+        return "Please upload a document or provide a GitHub raw URL before asking questions."
+
     relevant_docs = retrieve_documents(query)
     
     # Create the grounded prompt for the LLM

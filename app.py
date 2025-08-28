@@ -103,16 +103,10 @@ def get_collection():
     """
     Retrieves or creates the ChromaDB collection.
     """
-    if 'db_collection' not in st.session_state:
-        try:
-            st.session_state.db_collection = st.session_state.db_client.get_collection(
-                name=COLLECTION_NAME
-            )
-        except Exception:
-            st.session_state.db_collection = st.session_state.db_client.get_or_create_collection(
-                name=COLLECTION_NAME
-            )
-    return st.session_state.db_collection
+    # Use get_or_create_collection to always ensure the collection exists
+    return st.session_state.db_client.get_or_create_collection(
+        name=COLLECTION_NAME
+    )
 
 def split_documents(text_data, chunk_size=500, chunk_overlap=100):
     """Splits a single string of text into chunks."""

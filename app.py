@@ -23,35 +23,43 @@ def get_db_path():
     """Returns the path to the ChromaDB directory."""
     return "./chroma_db"
 
-def initialize_chroma():
-    """Initializes and returns a ChromaDB client."""
+@st.cache_resource
+def initialize_chroma_client():
+    """Initializes and returns a ChromaDB client.
+    
+    This function is cached to ensure the client is only created once.
+    """
     db_path = get_db_path()
-    # The database path will not be removed here to preserve data across runs
     return chromadb.PersistentClient(path=db_path)
+
+@st.cache_resource
+def get_sentence_transformer_model():
+    """Initializes and returns the SentenceTransformer model.
+    
+    This function is cached to ensure the model is only loaded once.
+    """
+    return SentenceTransformer("all-MiniLM-L6-v2")
 
 def clear_chroma_data():
     """Clears all data from the ChromaDB collection."""
-    # Check if the collection exists before attempting to delete it
-    if 'db_client' in st.session_state and 'db_collection' in st.session_state:
+    # This function is now part of the UI logic and will be triggered by a button
+    try:
         if COLLECTION_NAME in [col.name for col in st.session_state.db_client.list_collections()]:
             st.session_state.db_client.delete_collection(name=COLLECTION_NAME)
+    except Exception as e:
+        st.error(f"Error clearing collection: {e}")
 
 def get_collection():
     """
     Retrieves or creates the ChromaDB collection.
-    
-    This function is now a core part of the app's state management,
-    ensuring a single, persistent collection is used across runs.
     """
-    # Use a direct check on the existence of the collection object
-    if 'db_collection' not in st.session_state or st.session_state.db_collection is None:
+    if 'db_collection' not in st.session_state:
+        st.session_state.db_client = initialize_chroma_client()
         try:
-            # Try to get the existing collection
             st.session_state.db_collection = st.session_state.db_client.get_collection(
                 name=COLLECTION_NAME
             )
         except Exception:
-            # If it doesn't exist, create it
             st.session_state.db_collection = st.session_state.db_client.get_or_create_collection(
                 name=COLLECTION_NAME
             )
@@ -77,10 +85,9 @@ def process_and_store_documents(documents):
     Processes a list of text documents, generates embeddings, and
     stores them in ChromaDB.
     """
-    # Ensure the collection exists before processing documents
     collection = get_collection()
+    model = get_sentence_transformer_model()
 
-    model = st.session_state.model
     embeddings = model.encode(documents).tolist()
     document_ids = [str(uuid.uuid4()) for _ in documents]
     
@@ -98,7 +105,7 @@ def retrieve_documents(query, n_results=5):
     Retrieves the most relevant documents from ChromaDB based on a query.
     """
     collection = get_collection()
-    model = st.session_state.model
+    model = get_sentence_transformer_model()
     
     query_embedding = model.encode(query).tolist()
     
@@ -120,7 +127,6 @@ def rag_pipeline(query):
     
     # Call the LLM (this is a placeholder for your actual LLM call)
     # The actual LLM call would be an API call here.
-    # For now, we'll return a placeholder response
     return "This is a placeholder response based on the retrieved context."
 
 def display_chat_messages():
@@ -167,7 +173,6 @@ def main_ui():
         # Chat history display logic
         st.subheader("Chat History")
         if 'chat_history' in st.session_state and st.session_state.chat_history:
-            # Sort chats by creation date descending
             sorted_chat_ids = sorted(
                 st.session_state.chat_history.keys(), 
                 key=lambda x: st.session_state.chat_history[x]['date'], 
@@ -188,12 +193,10 @@ def main_ui():
     # Document upload/processing section
     with st.container():
         st.subheader("Add Context Documents")
-        
         uploaded_file = st.file_uploader("Upload a text file (.txt)", type="txt")
         github_url = st.text_input("Enter a GitHub repository URL to load `.md` or `.txt` files from:")
 
         if uploaded_file:
-            # Handle uploaded file
             file_contents = uploaded_file.read().decode("utf-8")
             st.session_state.uploaded_file_content = file_contents
             if st.button("Process File"):
@@ -225,14 +228,15 @@ def main_ui():
                     # finally:
                     #     shutil.rmtree(temp_dir)
                     pass
-
+    
     # Initialize chat history, ChromaDB client, and model in session state
     if 'messages' not in st.session_state:
         st.session_state.messages = []
-    if 'db_client' not in st.session_state:
-        st.session_state.db_client = initialize_chroma()
-    if 'model' not in st.session_state:
-        st.session_state.model = SentenceTransformer("all-MiniLM-L6-v2")
+    
+    # Initialize cached resources
+    st.session_state.db_client = initialize_chroma_client()
+    st.session_state.model = get_sentence_transformer_model()
+    
     if 'chat_history' not in st.session_state:
         st.session_state.chat_history = {}
     if 'current_chat_id' not in st.session_state:

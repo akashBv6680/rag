@@ -20,8 +20,11 @@ import shutil
 COLLECTION_NAME = "rag_documents"
 
 def get_db_path():
-    """Returns the path to the ChromaDB directory."""
-    return "./chroma_db"
+    """Returns a unique temporary path for the ChromaDB directory."""
+    # Use a unique temporary directory to avoid conflicts between reruns
+    if "db_path" not in st.session_state:
+        st.session_state.db_path = tempfile.mkdtemp()
+    return st.session_state.db_path
 
 def initialize_chroma_client():
     """Initializes and returns a ChromaDB client."""

@@ -80,7 +80,7 @@ def process_and_store_documents(documents):
     stores them in ChromaDB.
     """
     collection = get_collection()
-    model = get_sentence_transformer_model()
+    model = st.session_state.model
 
     embeddings = model.encode(documents).tolist()
     document_ids = [str(uuid.uuid4()) for _ in documents]
@@ -99,7 +99,7 @@ def retrieve_documents(query, n_results=5):
     Retrieves the most relevant documents from ChromaDB based on a query.
     """
     collection = get_collection()
-    model = get_sentence_transformer_model()
+    model = st.session_state.model
     
     query_embedding = model.encode(query).tolist()
     
@@ -227,11 +227,12 @@ def main_ui():
     if 'messages' not in st.session_state:
         st.session_state.messages = []
     
-    # Initialize db client and model outside of cached functions
+    # Initialize db client and model directly in session state
     if 'db_client' not in st.session_state:
-        st.session_state.db_client = initialize_chroma_client()
+        db_path = get_db_path()
+        st.session_state.db_client = chromadb.PersistentClient(path=db_path)
     if 'model' not in st.session_state:
-        st.session_state.model = get_sentence_transformer_model()
+        st.session_state.model = SentenceTransformer("all-MiniLM-L6-v2")
     
     if 'chat_history' not in st.session_state:
         st.session_state.chat_history = {}

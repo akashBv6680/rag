@@ -22,9 +22,9 @@ except ImportError:
 
 # --- Constants and Configuration ---
 COLLECTION_NAME = "rag_documents"
-# API key is automatically provided by the Canvas environment
-API_KEY = ""
-API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent"
+# API key is provided by the user
+TOGETHER_API_KEY = "tgp_v1_ecSsk1__FlO2mB_gAaaP2i-Affa6Dv8OCVngkWzBJUY"
+TOGETHER_API_URL = "https://api.together.xyz/v1/chat/completions"
 
 def get_db_path():
     """Returns a unique temporary path for the ChromaDB directory."""
@@ -42,33 +42,35 @@ def get_sentence_transformer_model():
     """Initializes and returns the SentenceTransformer model."""
     return SentenceTransformer("all-MiniLM-L6-v2")
 
-def call_gemini_api(prompt, max_retries=5):
+def call_together_api(prompt, max_retries=5):
     """
-    Calls the Google Gemini API with exponential backoff for retries.
+    Calls the Together AI API with exponential backoff for retries.
     """
     retry_delay = 1
     for i in range(max_retries):
         try:
             headers = {
                 "Content-Type": "application/json",
+                "Authorization": f"Bearer {TOGETHER_API_KEY}"
             }
-            # Use the provided API key if it exists, otherwise assume it's set by the runtime environment
-            if API_KEY:
-                url = f"{API_URL}?key={API_KEY}"
-            else:
-                url = API_URL
 
             payload = {
-                "contents": [
+                "model": "mistralai/Mistral-7B-Instruct-v0.2",
+                "messages": [
                     {
-                        "parts": [
-                            {"text": prompt}
-                        ]
+                        "role": "system",
+                        "content": "You are a helpful assistant."
+                    },
+                    {
+                        "role": "user",
+                        "content": prompt
                     }
-                ]
+                ],
+                "temperature": 0.7,
+                "max_tokens": 1024
             }
 
-            response = requests.post(url, headers=headers, data=json.dumps(payload))
+            response = requests.post(TOGETHER_API_URL, headers=headers, data=json.dumps(payload))
             response.raise_for_status()  # Raise an exception for bad status codes
             
             return response.json()
@@ -78,6 +80,9 @@ def call_gemini_api(prompt, max_retries=5):
                 st.warning(f"Rate limit exceeded. Retrying in {retry_delay} seconds...")
                 time.sleep(retry_delay)
                 retry_delay *= 2  # Exponential backoff
+            elif e.response.status_code == 401:
+                st.error("Invalid API Key. Please check your Together AI API key.")
+                return {"error": "401 Unauthorized"}
             else:
                 st.error(f"Failed to call API after {i+1} retries: {e}")
                 return {"error": str(e)}
@@ -169,15 +174,15 @@ def rag_pipeline(query):
     context = "\n".join(relevant_docs)
     prompt = f"Using the following information, answer the question:\n\nContext: {context}\n\nQuestion: {query}\n\nAnswer:"
     
-    # Call the Gemini API to get a real-time response
-    response_json = call_gemini_api(prompt)
+    # Call the Together API to get a real-time response
+    response_json = call_together_api(prompt)
 
     if 'error' in response_json:
         return "An error occurred while generating the response. Please try again."
     
     try:
         # Extract the text from the API response
-        return response_json['candidates'][0]['content']['parts'][0]['text']
+        return response_json['choices'][0]['message']['content']
     except (KeyError, IndexError):
         st.error("Invalid API response format.")
         return "Failed to get a valid response from the model."

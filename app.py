@@ -31,6 +31,7 @@ def initialize_chroma():
 
 def clear_chroma_data():
     """Clears all data from the ChromaDB collection."""
+    # Check if the collection exists before attempting to delete it
     if COLLECTION_NAME in [col.name for col in st.session_state.db_client.list_collections()]:
         st.session_state.db_client.delete_collection(name=COLLECTION_NAME)
 
@@ -41,10 +42,18 @@ def get_collection():
     This function is now a core part of the app's state management,
     ensuring a single, persistent collection is used across runs.
     """
+    # Use a direct check on the existence of the collection object
     if 'db_collection' not in st.session_state or st.session_state.db_collection is None:
-        st.session_state.db_collection = st.session_state.db_client.get_or_create_collection(
-            name=COLLECTION_NAME
-        )
+        try:
+            # Try to get the existing collection
+            st.session_state.db_collection = st.session_state.db_client.get_collection(
+                name=COLLECTION_NAME
+            )
+        except Exception:
+            # If it doesn't exist, create it
+            st.session_state.db_collection = st.session_state.db_client.get_or_create_collection(
+                name=COLLECTION_NAME
+            )
     return st.session_state.db_collection
 
 def split_documents(text_data, chunk_size=500, chunk_overlap=100):

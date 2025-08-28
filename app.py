@@ -265,27 +265,28 @@ def main_ui():
 
         if github_url and is_valid_github_url(github_url):
             if st.button("Process GitHub Repo"):
-                with st.spinner("Cloning and processing repository..."):
-                    temp_dir = tempfile.mkdtemp()
-                    # Placeholder for Git cloning logic
-                    # try:
-                    #     from git import Repo
-                    #     Repo.clone_from(github_url, temp_dir)
-                    #     docs_text = ""
-                    #     for root, _, files in os.walk(temp_dir):
-                    #         for file in files:
-                    #             if file.endswith((".md", ".txt")):
-                    #                 file_path = os.path.join(root, file)
-                    #                 with open(file_path, "r", encoding="utf-8") as f:
-                    #                     docs_text += f.read() + "\n"
-                    #     documents = split_documents(docs_text)
-                    #     process_and_store_documents(documents)
-                    #     st.success("Repository processed! You can now chat about its contents.")
-                    # except Exception as e:
-                    #     st.error(f"Error processing repository: {e}")
-                    # finally:
-                    #     shutil.rmtree(temp_dir)
-                    pass
+                st.error("This feature is not yet implemented. Please upload a `.txt` file directly.")
+                # The commented out git cloning logic is below
+                # with st.spinner("Cloning and processing repository..."):
+                #     temp_dir = tempfile.mkdtemp()
+                #     # try:
+                #     #     from git import Repo
+                #     #     Repo.clone_from(github_url, temp_dir)
+                #     #     docs_text = ""
+                #     #     for root, _, files in os.walk(temp_dir):
+                #     #         for file in files:
+                #     #             if file.endswith((".md", ".txt")):
+                #     #                 file_path = os.path.join(root, file)
+                #     #                 with open(file_path, "r", encoding="utf-8") as f:
+                #     #                     docs_text += f.read() + "\n"
+                #     #     documents = split_documents(docs_text)
+                #     #     process_and_store_documents(documents)
+                #     #     st.success("Repository processed! You can now chat about its contents.")
+                #     # except Exception as e:
+                #     #     st.error(f"Error processing repository: {e}")
+                #     # finally:
+                #     #     shutil.rmtree(temp_dir)
+                pass
     
     # Initialize chat history
     if 'messages' not in st.session_state:

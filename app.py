@@ -32,8 +32,9 @@ def initialize_chroma():
 def clear_chroma_data():
     """Clears all data from the ChromaDB collection."""
     # Check if the collection exists before attempting to delete it
-    if COLLECTION_NAME in [col.name for col in st.session_state.db_client.list_collections()]:
-        st.session_state.db_client.delete_collection(name=COLLECTION_NAME)
+    if 'db_client' in st.session_state and 'db_collection' in st.session_state:
+        if COLLECTION_NAME in [col.name for col in st.session_state.db_client.list_collections()]:
+            st.session_state.db_client.delete_collection(name=COLLECTION_NAME)
 
 def get_collection():
     """
@@ -76,9 +77,10 @@ def process_and_store_documents(documents):
     Processes a list of text documents, generates embeddings, and
     stores them in ChromaDB.
     """
-    model = st.session_state.model
+    # Ensure the collection exists before processing documents
     collection = get_collection()
 
+    model = st.session_state.model
     embeddings = model.encode(documents).tolist()
     document_ids = [str(uuid.uuid4()) for _ in documents]
     
@@ -95,8 +97,8 @@ def retrieve_documents(query, n_results=5):
     """
     Retrieves the most relevant documents from ChromaDB based on a query.
     """
-    model = st.session_state.model
     collection = get_collection()
+    model = st.session_state.model
     
     query_embedding = model.encode(query).tolist()
     
@@ -224,7 +226,7 @@ def main_ui():
                     #     shutil.rmtree(temp_dir)
                     pass
 
-    # Initialize chat history and ChromaDB client in session state
+    # Initialize chat history, ChromaDB client, and model in session state
     if 'messages' not in st.session_state:
         st.session_state.messages = []
     if 'db_client' not in st.session_state:

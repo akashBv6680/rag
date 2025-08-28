@@ -3,12 +3,9 @@ import os
 import sys
 import tempfile
 import uuid
-# Import a compatible version of sqlite3 for chromadb
-try:
-    __import__('pysqlite3')
-    sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
-except ImportError:
-    pass
+import json
+import requests
+import time
 from datetime import datetime, timedelta
 from sentence_transformers import SentenceTransformer
 import chromadb
@@ -16,8 +13,18 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 import re
 import shutil
 
+# Import a compatible version of sqlite3 for chromadb
+try:
+    __import__('pysqlite3')
+    sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
+except ImportError:
+    pass
+
 # --- Constants and Configuration ---
 COLLECTION_NAME = "rag_documents"
+# API key is automatically provided by the Canvas environment
+API_KEY = ""
+API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent"
 
 def get_db_path():
     """Returns a unique temporary path for the ChromaDB directory."""
@@ -34,6 +41,49 @@ def initialize_chroma_client():
 def get_sentence_transformer_model():
     """Initializes and returns the SentenceTransformer model."""
     return SentenceTransformer("all-MiniLM-L6-v2")
+
+def call_gemini_api(prompt, max_retries=5):
+    """
+    Calls the Google Gemini API with exponential backoff for retries.
+    """
+    retry_delay = 1
+    for i in range(max_retries):
+        try:
+            headers = {
+                "Content-Type": "application/json",
+            }
+            # Use the provided API key if it exists, otherwise assume it's set by the runtime environment
+            if API_KEY:
+                url = f"{API_URL}?key={API_KEY}"
+            else:
+                url = API_URL
+
+            payload = {
+                "contents": [
+                    {
+                        "parts": [
+                            {"text": prompt}
+                        ]
+                    }
+                ]
+            }
+
+            response = requests.post(url, headers=headers, data=json.dumps(payload))
+            response.raise_for_status()  # Raise an exception for bad status codes
+            
+            return response.json()
+        except requests.exceptions.HTTPError as e:
+            st.error(f"HTTP Error: {e}")
+            if e.response.status_code == 429: # Too Many Requests
+                st.warning(f"Rate limit exceeded. Retrying in {retry_delay} seconds...")
+                time.sleep(retry_delay)
+                retry_delay *= 2  # Exponential backoff
+            else:
+                st.error(f"Failed to call API after {i+1} retries: {e}")
+                return {"error": str(e)}
+        except Exception as e:
+            st.error(f"An error occurred during the API call: {e}")
+            return {"error": str(e)}
 
 def clear_chroma_data():
     """Clears all data from the ChromaDB collection."""
@@ -115,13 +165,22 @@ def rag_pipeline(query):
     """
     relevant_docs = retrieve_documents(query)
     
-    # A simple, concatenated prompt for response generation
+    # Create the grounded prompt for the LLM
     context = "\n".join(relevant_docs)
     prompt = f"Using the following information, answer the question:\n\nContext: {context}\n\nQuestion: {query}\n\nAnswer:"
     
-    # Call the LLM (this is a placeholder for your actual LLM call)
-    # The actual LLM call would be an API call here.
-    return "This is a placeholder response based on the retrieved context."
+    # Call the Gemini API to get a real-time response
+    response_json = call_gemini_api(prompt)
+
+    if 'error' in response_json:
+        return "An error occurred while generating the response. Please try again."
+    
+    try:
+        # Extract the text from the API response
+        return response_json['candidates'][0]['content']['parts'][0]['text']
+    except (KeyError, IndexError):
+        st.error("Invalid API response format.")
+        return "Failed to get a valid response from the model."
 
 def display_chat_messages():
     """Displays all chat messages in the Streamlit app."""

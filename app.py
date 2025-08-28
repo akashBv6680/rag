@@ -124,9 +124,9 @@ def split_documents(text_data, chunk_size=500, chunk_overlap=100):
     )
     return splitter.split_text(text_data)
 
-def is_valid_github_url(url):
-    """Checks if a URL is a valid GitHub repository URL."""
-    pattern = r"https://github\.com/[\w-]+/[\w-]+"
+def is_valid_github_raw_url(url):
+    """Checks if a URL is a valid GitHub raw file URL."""
+    pattern = r"https://raw\.githubusercontent\.com/[\w-]+/[\w-]+/[\w-.]+/[\w-./]+\.(txt|md)"
     return re.match(pattern, url) is not None
 
 def process_and_store_documents(documents):
@@ -252,7 +252,7 @@ def main_ui():
     with st.container():
         st.subheader("Add Context Documents")
         uploaded_file = st.file_uploader("Upload a text file (.txt)", type="txt")
-        github_url = st.text_input("Enter a GitHub repository URL to load `.md` or `.txt` files from:")
+        github_url = st.text_input("Enter a GitHub raw `.txt` or `.md` URL:")
 
         if uploaded_file:
             file_contents = uploaded_file.read().decode("utf-8")
@@ -263,30 +263,20 @@ def main_ui():
                     process_and_store_documents(documents)
                     st.success("File processed! You can now ask questions about its content.")
 
-        if github_url and is_valid_github_url(github_url):
-            if st.button("Process GitHub Repo"):
-                st.error("This feature is not yet implemented. Please upload a `.txt` file directly.")
-                # The commented out git cloning logic is below
-                # with st.spinner("Cloning and processing repository..."):
-                #     temp_dir = tempfile.mkdtemp()
-                #     # try:
-                #     #     from git import Repo
-                #     #     Repo.clone_from(github_url, temp_dir)
-                #     #     docs_text = ""
-                #     #     for root, _, files in os.walk(temp_dir):
-                #     #         for file in files:
-                #     #             if file.endswith((".md", ".txt")):
-                #     #                 file_path = os.path.join(root, file)
-                #     #                 with open(file_path, "r", encoding="utf-8") as f:
-                #     #                     docs_text += f.read() + "\n"
-                #     #     documents = split_documents(docs_text)
-                #     #     process_and_store_documents(documents)
-                #     #     st.success("Repository processed! You can now chat about its contents.")
-                #     # except Exception as e:
-                #     #     st.error(f"Error processing repository: {e}")
-                #     # finally:
-                #     #     shutil.rmtree(temp_dir)
-                pass
+        if github_url and is_valid_github_raw_url(github_url):
+            if st.button("Process URL"):
+                with st.spinner("Fetching and processing file from URL..."):
+                    try:
+                        response = requests.get(github_url)
+                        response.raise_for_status()  # Raise an HTTPError for bad responses (4xx or 5xx)
+                        file_contents = response.text
+                        documents = split_documents(file_contents)
+                        process_and_store_documents(documents)
+                        st.success("File from URL processed! You can now chat about its contents.")
+                    except requests.exceptions.RequestException as e:
+                        st.error(f"Error fetching URL: {e}")
+                    except Exception as e:
+                        st.error(f"An unexpected error occurred: {e}")
     
     # Initialize chat history
     if 'messages' not in st.session_state:

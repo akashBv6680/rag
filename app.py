@@ -23,21 +23,13 @@ def get_db_path():
     """Returns the path to the ChromaDB directory."""
     return "./chroma_db"
 
-@st.cache_resource
 def initialize_chroma_client():
-    """Initializes and returns a ChromaDB client.
-    
-    This function is cached to ensure the client is only created once.
-    """
+    """Initializes and returns a ChromaDB client."""
     db_path = get_db_path()
     return chromadb.PersistentClient(path=db_path)
 
-@st.cache_resource
 def get_sentence_transformer_model():
-    """Initializes and returns the SentenceTransformer model.
-    
-    This function is cached to ensure the model is only loaded once.
-    """
+    """Initializes and returns the SentenceTransformer model."""
     return SentenceTransformer("all-MiniLM-L6-v2")
 
 def clear_chroma_data():
@@ -54,7 +46,6 @@ def get_collection():
     Retrieves or creates the ChromaDB collection.
     """
     if 'db_collection' not in st.session_state:
-        st.session_state.db_client = initialize_chroma_client()
         try:
             st.session_state.db_collection = st.session_state.db_client.get_collection(
                 name=COLLECTION_NAME
@@ -229,13 +220,15 @@ def main_ui():
                     #     shutil.rmtree(temp_dir)
                     pass
     
-    # Initialize chat history, ChromaDB client, and model in session state
+    # Initialize chat history
     if 'messages' not in st.session_state:
         st.session_state.messages = []
     
-    # Initialize cached resources
-    st.session_state.db_client = initialize_chroma_client()
-    st.session_state.model = get_sentence_transformer_model()
+    # Initialize db client and model outside of cached functions
+    if 'db_client' not in st.session_state:
+        st.session_state.db_client = initialize_chroma_client()
+    if 'model' not in st.session_state:
+        st.session_state.model = get_sentence_transformer_model()
     
     if 'chat_history' not in st.session_state:
         st.session_state.chat_history = {}

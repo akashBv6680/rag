@@ -126,7 +126,8 @@ def split_documents(text_data, chunk_size=500, chunk_overlap=100):
 
 def is_valid_github_raw_url(url):
     """Checks if a URL is a valid GitHub raw file URL."""
-    pattern = r"https://raw\.githubusercontent\.com/[\w-]+/[\w-]+/[^/]+/[\w-./]+\.(txt|md)"
+    # Corrected regex to properly handle the hyphen in the character set
+    pattern = r"https://raw\.githubusercontent\.com/[\w-]+/[\w-]+/[^/]+/[\w./-]+\.(txt|md)"
     return re.match(pattern, url) is not None
 
 def process_and_store_documents(documents):

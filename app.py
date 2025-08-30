@@ -1,6 +1,16 @@
-import streamlit as st
-import os
 import sys
+import os
+
+# This block ensures a compatible sqlite3 version is used
+# by replacing the default system version with pysqlite3.
+try:
+    import pysqlite3
+    sys.modules['sqlite3'] = sys.modules['pysqlite3']
+except ImportError:
+    st.error("pysqlite3 is not installed. Please add 'pysqlite3-binary' to your requirements.txt.")
+    st.stop()
+
+import streamlit as st
 import tempfile
 import uuid
 import json
@@ -12,14 +22,6 @@ import chromadb
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 import re
 import shutil
-
-# Correct method to ensure a compatible sqlite3 version is used
-try:
-    __import__('pysqlite3')
-    sys.modules['sqlite3'] = sys.modules['pysqlite3']
-except ImportError:
-    st.error("pysqlite3 is not installed. Please add 'pysqlite3-binary' to your requirements.txt.")
-    st.stop()
 
 # --- Constants and Configuration ---
 COLLECTION_NAME = "rag_documents"

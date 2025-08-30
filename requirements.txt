@@ -1,8 +1,7 @@
-streamlit==1.36.0
-chromadb==0.5.4
-sentence-transformers==2.7.0
-langchain-text-splitters==0.2.2
-requests==2.32.3
+streamlit
+chromadb
+sentence-transformers
+langchain-text-splitters
+requests
 torch
-pysqlite3-binary
-numpy
+pysqlite3-binary 

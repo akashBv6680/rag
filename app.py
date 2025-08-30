@@ -27,7 +27,16 @@ COLLECTION_NAME = "rag_documents"
 TOGETHER_API_KEY = "tgp_v1_ecSsk1__FlO2mB_gAaaP2i-Affa6Dv8OCVngkWzBJUY" # REMEMBER TO REPLACE THIS WITH YOUR KEY
 TOGETHER_API_URL = "https://api.together.xyz/v1/chat/completions"
 
+# Dictionary of supported languages
+LANGUAGE_DICT = {
+    "English": "en", "Spanish": "es", "Arabic": "ar", "French": "fr",
+    "German": "de", "Hindi": "hi", "Tamil": "ta", "Bengali": "bn",
+    "Japanese": "ja", "Korean": "ko", "Russian": "ru",
+    "Chinese (Simplified)": "zh-Hans", "Portuguese": "pt",
+    "Italian": "it", "Dutch": "nl", "Turkish": "tr"
+}
 
+# Use Streamlit's cache to initialize dependencies once
 @st.cache_resource
 def initialize_dependencies():
     """
@@ -140,9 +149,9 @@ def retrieve_documents(query, n_results=5):
     results = collection.query(query_embeddings=query_embedding, n_results=n_results)
     return results['documents'][0]
 
-def rag_pipeline(query):
+def rag_pipeline(query, selected_language_code):
     """
-    Executes the full RAG pipeline: retrieval and response generation.
+    Executes the full RAG pipeline with language support.
     """
     collection = get_collection()
     if collection.count() == 0:
@@ -150,7 +159,9 @@ def rag_pipeline(query):
 
     relevant_docs = retrieve_documents(query)
     context = "\n".join(relevant_docs)
-    prompt = f"Using the following information, answer the question:\n\nContext: {context}\n\nQuestion: {query}\n\nAnswer:"
+    prompt = (f"Using the following information, answer the user's question. The final response MUST be in "
+              f"{st.session_state.selected_language}. If the information is not present, "
+              f"state that you cannot answer. \n\nContext: {context}\n\nQuestion: {query}\n\nAnswer:")
     
     response_json = call_together_api(prompt)
 
@@ -177,7 +188,8 @@ def handle_user_input():
             st.markdown(prompt)
         with st.chat_message("assistant"):
             with st.spinner("Thinking..."):
-                response = rag_pipeline(prompt)
+                selected_language_code = LANGUAGE_DICT.get(st.session_state.selected_language, "en")
+                response = rag_pipeline(prompt, selected_language_code)
                 st.markdown(response)
         st.session_state.messages.append({"role": "assistant", "content": response})
 
@@ -185,7 +197,6 @@ def handle_user_input():
 def main_ui():
     """Sets up the main Streamlit UI for the RAG chatbot."""
     st.set_page_config(layout="wide")
-    
     
     # Initialize dependencies with a cached function
     # It's better to do this once at the start
@@ -195,6 +206,11 @@ def main_ui():
     # Sidebar
     with st.sidebar:
         st.header("RAG Chat Flow")
+        st.session_state.selected_language = st.selectbox(
+            "Select a Language",
+            options=list(LANGUAGE_DICT.keys()),
+            key="language_selector"
+        )
         if st.button("New Chat"):
             st.session_state.messages = []
             clear_chroma_data()
@@ -223,16 +239,18 @@ def main_ui():
     # Document upload/processing section
     with st.container():
         st.subheader("Add Context Documents")
-        uploaded_file = st.file_uploader("Upload a text file (.txt)", type="txt")
+        uploaded_files = st.file_uploader("Upload text files (.txt)", type="txt", accept_multiple_files=True)
         github_url = st.text_input("Enter a GitHub raw `.txt` or `.md` URL:")
 
-        if uploaded_file:
-            if st.button("Process File"):
-                with st.spinner("Processing file..."):
-                    file_contents = uploaded_file.read().decode("utf-8")
-                    documents = split_documents(file_contents)
-                    process_and_store_documents(documents)
-                    st.success("File processed! You can now ask questions about its content.")
+        if uploaded_files:
+            if st.button("Process Files"):
+                with st.spinner("Processing files..."):
+                    for uploaded_file in uploaded_files:
+                        file_contents = uploaded_file.read().decode("utf-8")
+                        documents = split_documents(file_contents)
+                        process_and_store_documents(documents)
+                    st.success("All files processed and stored successfully! You can now ask questions about their content.")
+
         if github_url and is_valid_github_raw_url(github_url):
             if st.button("Process URL"):
                 with st.spinner("Fetching and processing file from URL..."):

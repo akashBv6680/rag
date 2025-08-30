@@ -1,5 +1,17 @@
-import sys
+import streamlit as st
 import os
+import sys
+import tempfile
+import uuid
+import json
+import requests
+import time
+from datetime import datetime
+from sentence_transformers import SentenceTransformer
+import chromadb
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+import re
+import shutil
 
 # This block ensures a compatible sqlite3 version is used
 # by replacing the default system version with pysqlite3.
@@ -10,33 +22,11 @@ except ImportError:
     st.error("pysqlite3 is not installed. Please add 'pysqlite3-binary' to your requirements.txt.")
     st.stop()
 
-import streamlit as st
-import tempfile
-import uuid
-import json
-import requests
-import time
-from datetime import datetime, timedelta
-from sentence_transformers import SentenceTransformer
-import chromadb
-from langchain_text_splitters import RecursiveCharacterTextSplitter
-import re
-import shutil
-
 # --- Constants and Configuration ---
 COLLECTION_NAME = "rag_documents"
 # API key is provided by the user
 TOGETHER_API_KEY = "tgp_v1_ecSsk1__FlO2mB_gAaaP2i-Affa6Dv8OCVngkWzBJUY" # REMEMBER TO REPLACE THIS WITH YOUR KEY
 TOGETHER_API_URL = "https://api.together.xyz/v1/chat/completions"
-
-# Dictionary of supported languages
-LANGUAGE_DICT = {
-    "English": "en", "Spanish": "es", "Arabic": "ar", "French": "fr",
-    "German": "de", "Hindi": "hi", "Tamil": "ta", "Bengali": "bn",
-    "Japanese": "ja", "Korean": "ko", "Russian": "ru",
-    "Chinese (Simplified)": "zh-Hans", "Portuguese": "pt",
-    "Italian": "it", "Dutch": "nl", "Turkish": "tr"
-}
 
 # Use Streamlit's cache to initialize dependencies once
 @st.cache_resource
@@ -57,8 +47,6 @@ def initialize_dependencies():
 
 def get_db_path():
     """Returns a unique temporary path for the ChromaDB directory."""
-    # This function is no longer needed with @st.cache_resource
-    # but we will keep it for compatibility with the rest of your code
     if "db_path" not in st.session_state:
         st.session_state.db_path = tempfile.mkdtemp()
     return st.session_state.db_path
@@ -151,9 +139,9 @@ def retrieve_documents(query, n_results=5):
     results = collection.query(query_embeddings=query_embedding, n_results=n_results)
     return results['documents'][0]
 
-def rag_pipeline(query, selected_language_code):
+def rag_pipeline(query):
     """
-    Executes the full RAG pipeline with language support.
+    Executes the full RAG pipeline: retrieval and response generation.
     """
     collection = get_collection()
     if collection.count() == 0:
@@ -161,8 +149,7 @@ def rag_pipeline(query, selected_language_code):
 
     relevant_docs = retrieve_documents(query)
     context = "\n".join(relevant_docs)
-    prompt = (f"Using the following information, answer the user's question. The final response MUST be in "
-              f"{st.session_state.selected_language}. If the information is not present, "
+    prompt = (f"Using the following information, answer the user's question. If the information is not present, "
               f"state that you cannot answer. \n\nContext: {context}\n\nQuestion: {query}\n\nAnswer:")
     
     response_json = call_together_api(prompt)
@@ -190,8 +177,7 @@ def handle_user_input():
             st.markdown(prompt)
         with st.chat_message("assistant"):
             with st.spinner("Thinking..."):
-                selected_language_code = LANGUAGE_DICT.get(st.session_state.selected_language, "en")
-                response = rag_pipeline(prompt, selected_language_code)
+                response = rag_pipeline(prompt)
                 st.markdown(response)
         st.session_state.messages.append({"role": "assistant", "content": response})
 
@@ -201,18 +187,12 @@ def main_ui():
     st.set_page_config(layout="wide")
     
     # Initialize dependencies with a cached function
-    # It's better to do this once at the start
     if 'db_client' not in st.session_state or 'model' not in st.session_state:
         st.session_state.db_client, st.session_state.model = initialize_dependencies()
 
     # Sidebar
     with st.sidebar:
         st.header("RAG Chat Flow")
-        st.session_state.selected_language = st.selectbox(
-            "Select a Language",
-            options=list(LANGUAGE_DICT.keys()),
-            key="language_selector"
-        )
         if st.button("New Chat"):
             st.session_state.messages = []
             clear_chroma_data()
@@ -252,7 +232,6 @@ def main_ui():
                         documents = split_documents(file_contents)
                         process_and_store_documents(documents)
                     st.success("All files processed and stored successfully! You can now ask questions about their content.")
-
         if github_url and is_valid_github_raw_url(github_url):
             if st.button("Process URL"):
                 with st.spinner("Fetching and processing file from URL..."):

@@ -4,4 +4,4 @@ sentence-transformers
 langchain-text-splitters
 requests
 torch
-pysqlite3-binary 
+pysqlite3-binary

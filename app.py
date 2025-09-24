@@ -20,13 +20,14 @@ import chromadb
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 import re
 import shutil
+import fitz # Import the PyMuPDF library for PDF processing
 
 # --- Constants and Configuration ---
 COLLECTION_NAME = "rag_documents"
 # API key is provided by the user
 # ⚠️ REMINDER: DO NOT HARDCODE YOUR API KEY IN A PUBLIC REPOSITORY. USE SECRETS OR ENVIRONMENT VARIABLES.
 # This key is a placeholder and should be replaced with your actual key.
-TOGETHER_API_KEY = "YOUR_TOGETHER_API_KEY_HERE" 
+TOGETHER_API_KEY = "YOUR_TOGETHER_API_KEY_HERE"
 TOGETHER_API_URL = "https://api.together.xyz/v1/chat/completions"
 
 # Use Streamlit's cache to initialize dependencies once
@@ -205,17 +206,32 @@ def main_ui():
     # Sidebar
     with st.sidebar:
         st.header("Upload Documents")
-        uploaded_files = st.file_uploader("Upload text files (.txt)", type="txt", accept_multiple_files=True)
+        uploaded_files = st.file_uploader("Upload text or PDF files", type=["txt", "pdf"], accept_multiple_files=True)
         github_url = st.text_input("Enter a GitHub raw `.txt` or `.md` URL:")
 
         if uploaded_files:
             if st.button("Process Files"):
                 with st.spinner("Processing files..."):
+                    all_text = ""
                     for uploaded_file in uploaded_files:
-                        file_contents = uploaded_file.read().decode("utf-8")
-                        documents = split_documents(file_contents)
+                        if uploaded_file.type == "text/plain":
+                            file_contents = uploaded_file.read().decode("utf-8")
+                            all_text += file_contents
+                        elif uploaded_file.type == "application/pdf":
+                            try:
+                                doc = fitz.open(stream=uploaded_file.getvalue(), filetype="pdf")
+                                for page in doc:
+                                    all_text += page.get_text()
+                            except Exception as e:
+                                st.error(f"Error processing PDF file: {e}")
+                                continue
+                    
+                    if all_text:
+                        documents = split_documents(all_text)
                         process_and_store_documents(documents)
-                    st.success("All files processed and stored! You can now ask questions about them.")
+                        st.success("All files processed and stored! You can now ask questions about them.")
+                    else:
+                        st.warning("No text could be extracted from the uploaded files.")
         
         if github_url:
             if st.button("Process URL"):

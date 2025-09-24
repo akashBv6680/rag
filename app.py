@@ -1,6 +1,14 @@
+# The sqlite3 fix must be at the very top, before any other imports
+import sys
+try:
+    import pysqlite3
+    sys.modules['sqlite3'] = sys.modules['pysqlite3']
+except ImportError:
+    print("pysqlite3 is not installed. Please add 'pysqlite3-binary' to your requirements.txt.")
+    sys.exit(1)
+
 import streamlit as st
 import os
-import sys
 import tempfile
 import uuid
 import json
@@ -13,21 +21,12 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 import re
 import shutil
 
-# This block ensures a compatible sqlite3 version is used
-# by replacing the default system version with pysqlite3.
-try:
-    import pysqlite3
-    sys.modules['sqlite3'] = sys.modules['pysqlite3']
-except ImportError:
-    st.error("pysqlite3 is not installed. Please add 'pysqlite3-binary' to your requirements.txt.")
-    st.stop()
-
 # --- Constants and Configuration ---
 COLLECTION_NAME = "rag_documents"
 # API key is provided by the user
 # ⚠️ REMINDER: DO NOT HARDCODE YOUR API KEY IN A PUBLIC REPOSITORY. USE SECRETS OR ENVIRONMENT VARIABLES.
 # This key is a placeholder and should be replaced with your actual key.
-TOGETHER_API_KEY = "tgp_v1_ecSsk1__FlO2mB_gAaaP2i-Affa6Dv8OCVngkWzBJUY"
+TOGETHER_API_KEY = "YOUR_TOGETHER_API_KEY_HERE" 
 TOGETHER_API_URL = "https://api.together.xyz/v1/chat/completions"
 
 # Use Streamlit's cache to initialize dependencies once
@@ -227,7 +226,7 @@ def main_ui():
                             response.raise_for_status()
                             file_contents = response.text
                             documents = split_documents(file_contents)
-                            process_and_and_store_documents(documents)
+                            process_and_store_documents(documents)
                             st.success("File from URL processed! You can now chat about its contents.")
                         except requests.exceptions.RequestException as e:
                             st.error(f"Error fetching URL: {e}")

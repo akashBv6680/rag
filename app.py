@@ -25,7 +25,9 @@ except ImportError:
 # --- Constants and Configuration ---
 COLLECTION_NAME = "rag_documents"
 # API key is provided by the user
-TOGETHER_API_KEY = "tgp_v1_ecSsk1__FlO2mB_gAaaP2i-Affa6Dv8OCVngkWzBJUY" # REMEMBER TO REPLACE THIS WITH YOUR KEY
+# ⚠️ REMINDER: DO NOT HARDCODE YOUR API KEY IN A PUBLIC REPOSITORY. USE SECRETS OR ENVIRONMENT VARIABLES.
+# This key is a placeholder and should be replaced with your actual key.
+TOGETHER_API_KEY = "tgp_v1_ecSsk1__FlO2mB_gAaaP2i-Affa6Dv8OCVngkWzBJUY"
 TOGETHER_API_URL = "https://api.together.xyz/v1/chat/completions"
 
 # Use Streamlit's cache to initialize dependencies once
@@ -55,6 +57,10 @@ def call_together_api(prompt, max_retries=5):
     """
     Calls the Together AI API with exponential backoff for retries.
     """
+    if TOGETHER_API_KEY == "YOUR_TOGETHER_API_KEY_HERE":
+        st.error("Please replace 'YOUR_TOGETHER_API_KEY_HERE' with your actual Together AI API key.")
+        return {"error": "API key not set"}
+
     retry_delay = 1
     for i in range(max_retries):
         try:
@@ -184,43 +190,22 @@ def handle_user_input():
 # --- Streamlit UI ---
 def main_ui():
     """Sets up the main Streamlit UI for the RAG chatbot."""
-    st.set_page_config(layout="wide")
+    st.set_page_config(layout="wide", page_title="RAG Chat Flow")
     
     # Initialize dependencies with a cached function
     if 'db_client' not in st.session_state or 'model' not in st.session_state:
         st.session_state.db_client, st.session_state.model = initialize_dependencies()
 
-    # Sidebar
-    with st.sidebar:
-        st.header("RAG Chat Flow")
-        if st.button("New Chat"):
-            st.session_state.messages = []
-            clear_chroma_data()
-            st.session_state.chat_history = {}
-            st.session_state.current_chat_id = None
-            st.experimental_rerun()
-        st.subheader("Chat History")
-        if 'chat_history' in st.session_state and st.session_state.chat_history:
-            sorted_chat_ids = sorted(
-                st.session_state.chat_history.keys(),
-                key=lambda x: st.session_state.chat_history[x]['date'],
-                reverse=True
-            )
-            for chat_id in sorted_chat_ids:
-                chat_title = st.session_state.chat_history[chat_id]['title']
-                date_str = st.session_state.chat_history[chat_id]['date'].strftime("%b %d, %I:%M %p")
-                if st.button(f"**{chat_title}** - {date_str}", key=chat_id):
-                    st.session_state.current_chat_id = chat_id
-                    st.session_state.messages = st.session_state.chat_history[chat_id]['messages']
-                    st.experimental_rerun()
-
-    # Main content area
+    # Initialize chat history
+    if 'messages' not in st.session_state:
+        st.session_state.messages = []
+    
     st.title("RAG Chat Flow")
     st.markdown("---")
 
-    # Document upload/processing section
-    with st.container():
-        st.subheader("Add Context Documents")
+    # Sidebar
+    with st.sidebar:
+        st.header("Upload Documents")
         uploaded_files = st.file_uploader("Upload text files (.txt)", type="txt", accept_multiple_files=True)
         github_url = st.text_input("Enter a GitHub raw `.txt` or `.md` URL:")
 
@@ -231,36 +216,37 @@ def main_ui():
                         file_contents = uploaded_file.read().decode("utf-8")
                         documents = split_documents(file_contents)
                         process_and_store_documents(documents)
-                    st.success("All files processed and stored successfully! You can now ask questions about their content.")
-        if github_url and is_valid_github_raw_url(github_url):
+                    st.success("All files processed and stored! You can now ask questions about them.")
+        
+        if github_url:
             if st.button("Process URL"):
-                with st.spinner("Fetching and processing file from URL..."):
-                    try:
-                        response = requests.get(github_url)
-                        response.raise_for_status()
-                        file_contents = response.text
-                        documents = split_documents(file_contents)
-                        process_and_store_documents(documents)
-                        st.success("File from URL processed! You can now chat about its contents.")
-                    except requests.exceptions.RequestException as e:
-                        st.error(f"Error fetching URL: {e}")
-                    except Exception as e:
-                        st.error(f"An unexpected error occurred: {e}")
+                if is_valid_github_raw_url(github_url):
+                    with st.spinner("Fetching and processing file from URL..."):
+                        try:
+                            response = requests.get(github_url)
+                            response.raise_for_status()
+                            file_contents = response.text
+                            documents = split_documents(file_contents)
+                            process_and_and_store_documents(documents)
+                            st.success("File from URL processed! You can now chat about its contents.")
+                        except requests.exceptions.RequestException as e:
+                            st.error(f"Error fetching URL: {e}")
+                        except Exception as e:
+                            st.error(f"An unexpected error occurred: {e}")
+                else:
+                    st.error("Please enter a valid GitHub raw URL (ending in .txt or .md).")
+        
+        st.markdown("---")
+        st.header("Chat Controls")
+        if st.button("Start New Chat"):
+            st.session_state.messages = []
+            clear_chroma_data()
+            st.experimental_rerun()
     
-    if 'messages' not in st.session_state:
-        st.session_state.messages = []
-    
-    if 'chat_history' not in st.session_state:
-        st.session_state.chat_history = {}
-    if 'current_chat_id' not in st.session_state:
-        st.session_state.current_chat_id = str(uuid.uuid4())
-        st.session_state.chat_history[st.session_state.current_chat_id] = {
-            'messages': st.session_state.messages,
-            'title': "New Chat",
-            'date': datetime.now()
-        }
-
+    # Display chat messages
     display_chat_messages()
+    
+    # Handle user input
     handle_user_input()
 
 if __name__ == "__main__":

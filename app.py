@@ -27,7 +27,7 @@ COLLECTION_NAME = "rag_documents"
 # API key is provided by the user
 # ⚠️ REMINDER: DO NOT HARDCODE YOUR API KEY IN A PUBLIC REPOSITORY. USE SECRETS OR ENVIRONMENT VARIABLES.
 # This key is a placeholder and should be replaced with your actual key.
-TOGETHER_API_KEY = "YOUR_TOGETHER_API_KEY_HERE"
+TOGETHER_API_KEY = "tgp_v1_ecSsk1__FlO2mB_gAaaP2i-Affa6Dv8OCVngkWzBJUY"
 TOGETHER_API_URL = "https://api.together.xyz/v1/chat/completions"
 
 # Use Streamlit's cache to initialize dependencies once
